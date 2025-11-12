@@ -1,0 +1,59 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: node-refresh-operator
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: node-refresh-operator
+rules:
+  # Node operations
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch", "patch"]
+  
+  # Pod operations
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "delete"]
+  
+  # Pod eviction
+  - apiGroups: [""]
+    resources: ["pods/eviction"]
+    verbs: ["create"]
+  
+  # Pod Disruption Budgets
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch"]
+  
+  # ReplicaSets, StatefulSets, DaemonSets
+  - apiGroups: ["apps"]
+    resources: ["replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch"]
+  
+  # Custom Resources - noderefreshes
+  - apiGroups: ["noderefresh.io"]
+    resources: ["noderefreshes"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  
+  # Custom Resource Status
+  - apiGroups: ["noderefresh.io"]
+    resources: ["noderefreshes/status"]
+    verbs: ["get", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: node-refresh-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: node-refresh-operator
+subjects:
+  - kind: ServiceAccount
+    name: node-refresh-operator
+    namespace: kube-system

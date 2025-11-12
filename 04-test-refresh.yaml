@@ -1,0 +1,131 @@
+# Namespace for testing
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-refresh
+
+---
+# Sample web application with multiple replicas
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  namespace: test-refresh
+spec:
+  replicas: 6  # Multiple pods across nodes
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      # Spread pods across different nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - web-app
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+          # Readiness probe - operator checks this
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          # Liveness probe
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          # Add a startup delay to simulate real app
+          lifecycle:
+            postStart:
+              exec:
+                command: ["/bin/sh", "-c", "echo 'Pod started on node:' && hostname"]
+
+---
+# Service to access the application
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app
+  namespace: test-refresh
+spec:
+  selector:
+    app: web-app
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+
+---
+# Pod Disruption Budget - ensures at least 4 pods always running
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web-app-pdb
+  namespace: test-refresh
+spec:
+  minAvailable: 4
+  selector:
+    matchLabels:
+      app: web-app
+
+---
+# A second application to test multi-app scenarios
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-app
+  namespace: test-refresh
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-app
+  template:
+    metadata:
+      labels:
+        app: api-app
+    spec:
+      containers:
+        - name: httpd
+          image: httpd:alpine
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 3
+
+---
+# PDB for api-app
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-app-pdb
+  namespace: test-refresh
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: api-app

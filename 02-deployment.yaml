@@ -1,0 +1,50 @@
+---
+# Operator Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: node-refresh-operator
+  namespace: kube-system
+  labels:
+    app: node-refresh-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: node-refresh-operator
+  template:
+    metadata:
+      labels:
+        app: node-refresh-operator
+    spec:
+      serviceAccountName: node-refresh-operator
+      containers:
+        - name: operator
+          image: us-central1-docker.pkg.dev/sgude-gke/flask-app-repo/node-refresh-operator:v1.0.0  
+          imagePullPolicy: Always
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import sys; sys.exit(0)"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import sys; sys.exit(0)"
+            initialDelaySeconds: 5
+            periodSeconds: 5

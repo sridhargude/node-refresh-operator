@@ -1,0 +1,10 @@
+apiVersion: noderefresh.io/v1
+kind: NodeRefresh
+metadata:
+  name: worker-nodes-refresh
+spec:
+  targetNodeLabels:
+    topology.kubernetes.io/region: "us-central1"
+  maxPodsToMoveAtOnce: 5
+  minHealthThreshold: 80
+  gracePeriodSeconds: 300

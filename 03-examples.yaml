@@ -1,0 +1,134 @@
+---
+# Example NodeRefresh Resource - Manual One-Time Refresh
+apiVersion: noderefresh.io/v1
+kind: NodeRefresh
+metadata:
+  name: worker-nodes-manual-refresh
+spec:
+  # Target nodes with these labels
+  targetNodeLabels:
+    node-role.kubernetes.io/worker: "true"
+    environment: production
+  
+  # Move maximum 3 pods at once
+  maxPodsToMoveAtOnce: 3
+  
+  # Require at least 85% cluster health before proceeding
+  minHealthThreshold: 85
+  
+  # Grace period for pod termination (5 minutes)
+  gracePeriodSeconds: 300
+  
+  # Timeout for new node provisioning (10 minutes)
+  nodeProvisionTimeout: 600
+
+---
+# Example NodeRefresh Resource - Scheduled Every 3 Days
+apiVersion: noderefresh.io/v1
+kind: NodeRefresh
+metadata:
+  name: worker-nodes-scheduled-refresh
+spec:
+  # Target nodes with these labels
+  targetNodeLabels:
+    node-role.kubernetes.io/worker: "true"
+  
+  # Refresh every 3 days at 2 AM UTC
+  refreshSchedule: "0 2 */3 * *"
+  
+  # Move maximum 5 pods at once
+  maxPodsToMoveAtOnce: 5
+  
+  # Require at least 80% cluster health
+  minHealthThreshold: 80
+  
+  # Shorter grace period for scheduled maintenance
+  gracePeriodSeconds: 180
+  
+  # Node provisioning timeout
+  nodeProvisionTimeout: 600
+
+---
+# Example NodeRefresh Resource - Database Nodes (Conservative)
+apiVersion: noderefresh.io/v1
+kind: NodeRefresh
+metadata:
+  name: database-nodes-refresh
+spec:
+  # Target database nodes
+  targetNodeLabels:
+    workload-type: database
+  
+  # Very conservative - only 1 pod at a time
+  maxPodsToMoveAtOnce: 1
+  
+  # Higher health threshold for critical workloads
+  minHealthThreshold: 95
+  
+  # Longer grace period for stateful workloads
+  gracePeriodSeconds: 600
+  
+  # Weekly refresh on Sundays at 3 AM
+  refreshSchedule: "0 3 * * 0"
+
+---
+# Example PodDisruptionBudget for applications
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: critical-app-pdb
+  namespace: default
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: critical-app
+  unhealthyPodEvictionPolicy: AlwaysAllow
+
+---
+# Example application deployment with proper labels
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: critical-app
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: critical-app
+  template:
+    metadata:
+      labels:
+        app: critical-app
+    spec:
+      affinity:
+        # Spread pods across nodes
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - critical-app
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: app
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 20
