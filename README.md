@@ -80,6 +80,7 @@ spec:
   gracePeriodSeconds: 300
 ```
 
+
 Apply and monitor:
 
 ```bash
@@ -123,7 +124,15 @@ spec:
   refreshSchedule: "0 3 * * 0"  # Weekly on Sundays
 ```
 
+
+### Resize pool
+```bash
+gcloud container clusters resize gke-hpa-cluster \
+  --node-pool gke-hpa-cluster-node-pool \
+  --num-nodes=5 \
+  --zone us-central1-f
 ## Configuration Reference
+```
 
 ### Spec Fields
 

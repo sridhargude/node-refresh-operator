@@ -65,7 +65,7 @@ metadata:
   name: web-app-pdb
   namespace: test-refresh
 spec:
-  minAvailable: 3
+  minAvailable: 1
   selector:
     matchLabels:
       app: web-app
